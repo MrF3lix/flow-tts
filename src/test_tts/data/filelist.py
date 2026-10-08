@@ -16,6 +16,14 @@ class Utterance:
 def parse_filelist(filelist: str | Path, root: str | Path | None = None) -> list[Utterance]:
     """Relative audio paths are resolved against `root` (default: the filelist's project root,
     i.e. the current working directory)."""
+    if not Path(filelist).is_file():
+        raise FileNotFoundError(
+            f"filelist not found: {filelist}\n"
+            "Filelists are not in git (data/ is ignored). Copy data/filelists/ from a machine that has them, or "
+            "rebuild them (deterministic, same split):\n"
+            "  uv run tts-build-filelist --metadata data/be/metadata.txt --audio-col 0 --text-col 1 "
+            "--audio-root data/be/prepared/wav --out-dir data/filelists/be"
+        )
     items = []
     with open(filelist, encoding="utf-8") as f:
         for line in f:
