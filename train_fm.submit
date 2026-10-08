@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH --time=1440
+#SBATCH --job-name=TestTTS_fm
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --nodes=1
+#SBATCH --partition=gpu_top
+#SBATCH --mem=24G
+#SBATCH --gres=gpu:1
+#SBATCH --account=cai_nlp
+#SBATCH --mail-user=saaf@zhaw.ch
+#SBATCH --output=logs/slurm/%j_%N.out
+#SBATCH --error=logs/slurm/%j_%N.err
+#SBATCH --open-mode=append
+
+# Stage 2 on one GPU: text-conditioned flow matching in the latent space of a trained VAE.
+# Submit from the repo root (SLURM does not create logs/slurm itself):
+#
+#   mkdir -p logs/slurm
+#   VAE_CKPT=logs/train_vae/be_vae/runs/<dir>/checkpoints/best.pt sbatch train_fm.submit
+#   sbatch train_fm.submit                                          # the VAE set in configs/experiment/be_fm.yaml
+#   sbatch train_fm.submit trainer.max_steps=150000                 # extra args are hydra overrides
+#   RUN_DIR=logs/train_fm/be_fm/runs/<dir> sbatch train_fm.submit   # continue that run from last.pt
+#
+# The VAE's latent statistics must be fitted (train_vae.submit does it). The latent cache is
+# built on the node on first use. Check the commands without SLURM:  DRY_RUN=1 bash train_fm.submit
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+source scripts/slurm_setup.sh
+
+EXP_NAME="${EXP_NAME:-be_fm}"
+RUN_DIR="${RUN_DIR:-logs/train_fm/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
+run mkdir -p "${RUN_DIR}"
+echo "[$(date +%T)] tts-train-fm experiment=${EXP_NAME} -> ${RUN_DIR}"
+
+EXTRA=()
+if [ -n "${VAE_CKPT:-}" ]; then
+    if [ "${DRY_RUN:-0}" != "1" ] && [ ! -f "${VAE_CKPT}" ]; then
+        echo "ERROR: VAE_CKPT=${VAE_CKPT} does not exist" >&2
+        exit 1
+    fi
+    EXTRA+=(vae_ckpt="$(cd "$(dirname "${VAE_CKPT}")" 2>/dev/null && pwd || dirname "${VAE_CKPT}")/$(basename "${VAE_CKPT}")")
+fi
+if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
+    EXTRA+=(ckpt_path="${RUN_DIR}/checkpoints/last.pt")
+    echo "[$(date +%T)] resuming from ${RUN_DIR}/checkpoints/last.pt"
+fi
+
+run uv run --no-sync tts-train-fm \
+    experiment="${EXP_NAME}" \
+    hydra.run.dir="${RUN_DIR}" \
+    ${EXTRA[@]+"${EXTRA[@]}"} \
+    trainer.device=cuda \
+    trainer.precision=bf16 \
+    data.num_workers=8 \
+    logger=wandb \
+    logger.wandb.id="fm_$(basename "${RUN_DIR}")" \
+    "$@"

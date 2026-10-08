@@ -1,0 +1,62 @@
+#!/bin/bash
+#SBATCH --time=720
+#SBATCH --job-name=TestTTS_vae
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --nodes=1
+#SBATCH --partition=gpu_top
+#SBATCH --mem=24G
+#SBATCH --gres=gpu:1
+#SBATCH --account=cai_nlp
+#SBATCH --mail-user=saaf@zhaw.ch
+#SBATCH --output=logs/slurm/%j_%N.out
+#SBATCH --error=logs/slurm/%j_%N.err
+#SBATCH --open-mode=append
+
+# Stage 1 on one GPU: train the mel VAE, then fit its latent statistics into best.pt, which the
+# flow model needs. Submit from the repo root (SLURM does not create logs/slurm itself):
+#
+#   mkdir -p logs/slurm
+#   sbatch train_vae.submit                                         # experiment be_vae, new run dir
+#   sbatch train_vae.submit trainer.max_steps=80000                 # extra args are hydra overrides
+#   RUN_DIR=logs/train_vae/be_vae/runs/<dir> sbatch train_vae.submit   # continue that run from last.pt
+#
+# Then the flow model on this VAE, or both chained in one go (FM starts when the VAE job succeeds):
+#
+#   VAE_CKPT=<run dir>/checkpoints/best.pt sbatch train_fm.submit
+#
+#   RUN_DIR=logs/train_vae/be_vae/runs/cluster_v1
+#   job=$(RUN_DIR=$RUN_DIR sbatch --parsable train_vae.submit)
+#   VAE_CKPT=$RUN_DIR/checkpoints/best.pt sbatch --dependency=afterok:$job train_fm.submit
+#
+# Check the commands without SLURM or a GPU:  DRY_RUN=1 bash train_vae.submit
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+source scripts/slurm_setup.sh
+
+EXP_NAME="${EXP_NAME:-be_vae}"
+RUN_DIR="${RUN_DIR:-logs/train_vae/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
+run mkdir -p "${RUN_DIR}"
+echo "[$(date +%T)] tts-train-vae experiment=${EXP_NAME} -> ${RUN_DIR}"
+
+RESUME=()
+if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
+    RESUME=(ckpt_path="${RUN_DIR}/checkpoints/last.pt")
+    echo "[$(date +%T)] resuming from ${RUN_DIR}/checkpoints/last.pt"
+fi
+
+run uv run --no-sync tts-train-vae \
+    experiment="${EXP_NAME}" \
+    hydra.run.dir="${RUN_DIR}" \
+    ${RESUME[@]+"${RESUME[@]}"} \
+    trainer.device=cuda \
+    data.num_workers=8 \
+    logger=wandb \
+    logger.wandb.id="vae_$(basename "${RUN_DIR}")" \
+    "$@"
+
+echo "[$(date +%T)] fitting latent statistics"
+run uv run --no-sync tts-vae-latent-stats --ckpt "${RUN_DIR}/checkpoints/best.pt" --device cuda --workers 8
+
+echo "[$(date +%T)] VAE ready. Train the flow model on it with:"
+echo "    VAE_CKPT=${RUN_DIR}/checkpoints/best.pt sbatch train_fm.submit"
