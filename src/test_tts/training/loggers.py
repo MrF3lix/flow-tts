@@ -40,15 +40,20 @@ class TensorBoardLogger:
 
 class WandbLogger:
     def __init__(self, save_dir: str, project: str, name: str | None = None, id: str | None = None,
-                 offline: bool = False, tags=None):  # pylint: disable=redefined-builtin
+                 offline: bool = False, tags=None, entity: str | None = None):  # pylint: disable=redefined-builtin
+        import os  # pylint: disable=import-outside-toplevel
+
         import wandb  # pylint: disable=import-outside-toplevel
 
+        if not offline and not os.environ.get("WANDB_API_KEY") and not wandb.api.api_key:
+            raise RuntimeError("no wandb API key: put WANDB_API_KEY=... into .env in the repo root, or use logger=tensorboard")
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         self.wandb = wandb
         self.run = wandb.init(
-            project=project, name=name, id=id, dir=save_dir, tags=list(tags or []),
+            project=project, entity=entity, name=name, id=id, dir=save_dir, tags=list(tags or []),
             mode="offline" if offline else "online", resume="allow" if id else None,
         )
+        log.info("wandb run: %s", self.run.url)
 
     def log_scalars(self, scalars: dict[str, float], step: int):
         self.run.log(scalars, step=step)

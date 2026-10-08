@@ -1,8 +1,11 @@
+# Weights & Biases. The API key is read from WANDB_API_KEY, which rootutils loads from the
+# git-ignored .env in the repo root at start-up (copy .env to the cluster as well).
 wandb:
   _target_: test_tts.training.loggers.WandbLogger
   save_dir: ${paths.output_dir}
-  project: test-tts
+  project: test-tts       # created on the first run
+  entity: felix-saaro-zhaw  # default entity of the key in .env; null = the key's default
   name: ${run_name}
-  id: null                # set to resume a run
+  id: null                # set to resume a run (the submit scripts derive it from the run dir)
   offline: false
   tags: ${tags}
