@@ -1,0 +1,73 @@
+#!/bin/bash
+#SBATCH --time=1440
+#SBATCH --job-name=TestTTS_train
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --nodes=1
+#SBATCH --partition=gpu_top
+#SBATCH --mem=24G
+#SBATCH --gres=gpu:1
+#SBATCH --account=cai_nlp
+#SBATCH --mail-user=saaf@zhaw.ch
+#SBATCH --output=logs/slurm/%j_%N.out
+#SBATCH --error=logs/slurm/%j_%N.err
+#SBATCH --open-mode=append
+
+# Train one stage of Test-TTS on a single GPU (the plain-torch trainer does not use DDP).
+#
+#   mkdir -p logs/slurm                                    # SLURM does not create it
+#   sbatch train.submit                                    # flow matching, experiment be_fm
+#   ENTRY=tts-train-vae EXP_NAME=be_vae sbatch train.submit
+#   RUN_DIR=logs/train_fm/be_fm/runs/<date> sbatch train.submit    # continue a run from its last.pt
+#
+# Submit from the repo root. The flow stage needs the VAE checkpoint named in
+# configs/experiment/be_fm.yaml at the same path (copy logs/train_vae/.../checkpoints/best.pt);
+# its latent cache is rebuilt on the node on first use.
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L 2>/dev/null | grep -q '^GPU '; then
+    ACCEL_EXTRA=cu128
+elif [ -e /dev/kfd ] || (command -v rocm-smi >/dev/null 2>&1 && rocm-smi --showid >/dev/null 2>&1); then
+    ACCEL_EXTRA=rocm
+else
+    echo "ERROR: no NVIDIA or AMD GPU found on $(hostname). Refusing to fall back to CPU." >&2
+    exit 1
+fi
+echo "[$(date +%T)] Node $(hostname): detected ${ACCEL_EXTRA} GPUs"
+
+export UV_PROJECT_ENVIRONMENT="/raid/persistent_scratch/saaf/venvs/test-tts-${ACCEL_EXTRA}"
+export UV_LINK_MODE=copy
+export UV_HTTP_TIMEOUT=900
+
+if [ "${ACCEL_EXTRA}" = "rocm" ]; then
+    export MIOPEN_USER_DB_PATH="/raid/persistent_scratch/saaf/miopen/${SLURM_JOB_ID:-$$}"
+    export MIOPEN_CUSTOM_CACHE_DIR="${MIOPEN_USER_DB_PATH}"
+    mkdir -p "${MIOPEN_USER_DB_PATH}"
+    trap 'rm -rf "${MIOPEN_USER_DB_PATH}"' EXIT
+fi
+
+uv sync --extra "${ACCEL_EXTRA}" --extra wandb
+
+ENTRY="${ENTRY:-tts-train-fm}"
+EXP_NAME="${EXP_NAME:-be_fm}"
+TASK="${ENTRY#tts-}"; TASK="${TASK//-/_}"              # tts-train-fm -> train_fm
+RUN_DIR="${RUN_DIR:-logs/${TASK}/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
+mkdir -p "${RUN_DIR}"
+echo "[$(date +%T)] ${ENTRY} experiment=${EXP_NAME} -> ${RUN_DIR}"
+
+RESUME=()
+if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
+    RESUME=(ckpt_path="${RUN_DIR}/checkpoints/last.pt")
+    echo "[$(date +%T)] resuming from ${RUN_DIR}/checkpoints/last.pt"
+fi
+
+uv run --no-sync "${ENTRY}" \
+    experiment="${EXP_NAME}" \
+    hydra.run.dir="${RUN_DIR}" \
+    ${RESUME[@]+"${RESUME[@]}"} \
+    trainer.device=cuda \
+    trainer.precision=bf16 \
+    data.num_workers=8 \
+    logger=wandb \
+    logger.wandb.id="$(basename "${RUN_DIR}")"

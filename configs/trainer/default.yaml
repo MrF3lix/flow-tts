@@ -1,0 +1,17 @@
+# Plain PyTorch loop (src/test_tts/training/trainer.py), no Lightning. Shared by all stages.
+device: auto              # auto -> cuda > mps > cpu; or an explicit "cuda:0" / "mps" / "cpu"
+precision: fp32           # fp32 | bf16 (autocast; CUDA only, silently fp32 elsewhere)
+
+max_steps: 60000
+warmup_steps: 1000        # linear LR warm-up, then constant
+grad_clip: 5.0
+
+ema_decay: 0.999          # EMA of the weights, used for validation, samples and `best.pt`; 0 disables
+
+log_every_n_steps: 50
+val_every_n_steps: 1000
+ckpt_every_n_steps: 1000  # writes checkpoints/last.pt; best.pt tracks the lowest `monitor` metric
+
+# Audio samples: vocode a few validation utterances (ground truth once, reconstruction each time)
+n_audio_samples: 3
+audio_every_n_vals: 2     # every N validations; 0 disables vocoding entirely

@@ -1,0 +1,28 @@
+_target_: test_tts.data.text_latent_dataset.TextLatentDataModule
+name: be_text_latent
+
+# Same filelists as the VAE stage (`path|text`).
+train_filelist: ${paths.root_dir}/data/filelists/be/train.txt
+valid_filelist: ${paths.root_dir}/data/filelists/be/val.txt
+
+# Mel front-end and mel statistics come from the VAE checkpoint, so latents and mels always
+# share features; only the mel cache location is set here (shared with the VAE stage).
+vae_ckpt: ${vae_ckpt}
+mel_cache_dir: ${paths.root_dir}/data/cache/mels_be_vocbulwark
+latent_cache_root: ${paths.root_dir}/data/cache/latents
+
+batch_size: 32
+num_workers: 4
+pin_memory: false
+
+# Text: characters, Swiss German cleaner (numbers spelled out, lowercase), blanks interspersed.
+cleaner: swiss_german
+add_blank: true
+
+# Train on posterior samples instead of posterior means (latent augmentation). Means by default:
+# they are what the energy model will treat as data.
+sample_latent: false
+
+root: ${paths.root_dir}
+seed: ${seed}
+device: ${trainer.device}   # for encoding the latent cache

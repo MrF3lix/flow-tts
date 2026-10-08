@@ -1,0 +1,11 @@
+# @package _global_
+
+# Mel VAE on the Bernese corpus for the VocBulwark front-end:
+#   uv run tts-train-vae experiment=be_vae
+defaults:
+  - override /data: be_vocbulwark
+  - override /model: mel_vae
+  - override /logger: wandb
+
+run_name: be_vae
+tags: ["be", "vae", "vocbulwark", "96mel"]

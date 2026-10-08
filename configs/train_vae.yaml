@@ -1,0 +1,32 @@
+# @package _global_
+
+# Stage 1 of NOTES.md: train the mel VAE (encoder + decoder), then freeze it.
+#   uv run tts-train-vae experiment=be_vae
+defaults:
+  - _self_
+  - data: be_vocbulwark
+  - model: mel_vae
+  - optimizer: adamw
+  - trainer: default
+  - vocoder: vocbulwark
+  - logger: tensorboard
+  - paths: default
+  - hydra: default
+  - experiment: null
+  - optional local: default
+  - debug: null
+
+# task name, determines output directory path
+task_name: train_vae
+
+run_name: ???
+
+tags: ["dev"]
+
+# metric that selects checkpoints/best.pt (lowest wins)
+monitor: val/recon
+
+# resume from this checkpoint (model, optimiser, EMA, step)
+ckpt_path: null
+
+seed: 1234

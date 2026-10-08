@@ -1,0 +1,3 @@
+tensorboard:
+  _target_: test_tts.training.loggers.TensorBoardLogger
+  save_dir: ${paths.output_dir}/tensorboard

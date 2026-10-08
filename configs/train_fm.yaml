@@ -1,0 +1,41 @@
+# @package _global_
+
+# Text-conditioned flow matching in the latent space of a frozen mel VAE.
+#   uv run tts-train-fm experiment=be_fm
+defaults:
+  - _self_
+  - data: be_text_latent
+  - model: latent_fm
+  - optimizer: adamw
+  - trainer: default
+  - vocoder: vocbulwark
+  - logger: tensorboard
+  - paths: default
+  - hydra: default
+  - experiment: null
+  - optional local: default
+  - debug: null
+
+task_name: train_fm
+
+run_name: ???
+
+tags: ["dev"]
+
+# The frozen mel VAE whose (normalised) latent space the flow model generates in. Its latent
+# statistics must be fitted (tts-vae-latent-stats). Latents are cached per VAE run and step.
+vae_ckpt: ???
+
+# metric that selects checkpoints/best.pt (lowest wins): sum of flow, prior and duration loss
+monitor: val/loss
+
+ckpt_path: null
+
+seed: 1234
+
+# synthesis settings for the validation samples (and the defaults of tts-synthesize)
+synthesis:
+  n_steps: 32             # Euler steps of the ODE
+  temperature: 0.667      # scale of the initial noise (Matcha's default)
+  length_scale: 1.0
+  guidance_scale: 1.0     # classifier-free guidance; 1 = off

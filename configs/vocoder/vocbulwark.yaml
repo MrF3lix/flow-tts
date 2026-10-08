@@ -1,0 +1,8 @@
+# VocBulwark `vocoder-large` (BigVGAN, 24 kHz, 96 Whisper mels) and its 768-d speaker encoder.
+# Only used for listening checks: audio samples during training and tts-vae-reconstruct.
+_target_: test_tts.audio.vocoder.VocBulwark.load
+generator_repo: mlr2000/vocoder-large
+speaker_encoder_repo: mlr2000/vocoder-large-speaker-encoder
+# Averaged over 50 corpus clips with:  uv run tts-speaker-embedding --wav-dir data/be/prepared/wav --out data/be_speaker_embedding.pt
+speaker_embedding: ${paths.root_dir}/data/be_speaker_embedding.pt
+device: auto              # auto = the training device (MPS: ~1 s per utterance vs. >6 s on CPU); or cpu / cuda:1 ...

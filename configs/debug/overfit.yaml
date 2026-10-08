@@ -1,0 +1,25 @@
+# @package _global_
+
+# Memorise a tiny set (the 54 validation utterances, also used for validation). Every stage
+# should drive its training loss far down within a few thousand steps; if it does not, the
+# plumbing (masks, alignment, conditioning) is broken, not the data size.
+#   uv run tts-train-fm experiment=be_fm debug=overfit
+run_name: overfit
+tags: ["debug", "overfit"]
+
+data:
+  train_filelist: ${data.valid_filelist}
+  batch_size: 16
+
+trainer:
+  max_steps: 4000
+  warmup_steps: 200
+  log_every_n_steps: 50
+  val_every_n_steps: 500
+  ckpt_every_n_steps: 500
+  ema_decay: 0.99
+  audio_every_n_vals: 4
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/debug/${task_name}_${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}

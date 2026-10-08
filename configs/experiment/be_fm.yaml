@@ -1,0 +1,22 @@
+# @package _global_
+
+# Latent flow matching on the Bernese corpus:
+#   uv run tts-train-fm experiment=be_fm
+defaults:
+  - override /data: be_text_latent
+  - override /model: latent_fm
+  - override /logger: wandb
+
+run_name: be_fm
+tags: ["be", "flow_matching", "latent", "char"]
+
+# The 60k-step VAE from 2026-10-08 (val L1 0.0875, latent stats fitted).
+vae_ckpt: ${paths.root_dir}/logs/train_vae/be_vae/runs/2026-10-08_14-05-16/checkpoints/best.pt
+
+trainer:
+  max_steps: 100000
+  warmup_steps: 2000
+  val_every_n_steps: 2000
+  ckpt_every_n_steps: 2000
+  n_audio_samples: 3
+  audio_every_n_vals: 1

@@ -1,0 +1,44 @@
+_target_: test_tts.data.mel_dataset.MelDataModule
+name: be_vocbulwark
+
+# Bernese Swiss German read speech: one female speaker, 2700 utterances, 3.35 h, 24 kHz.
+# Filelists (`path|text` per line) are written by
+#   uv run tts-build-filelist --metadata data/be/metadata.txt --audio-col 0 --text-col 1 \
+#       --audio-root data/be/prepared/wav --out-dir data/filelists/be
+train_filelist: ${paths.root_dir}/data/filelists/be/train.txt
+valid_filelist: ${paths.root_dir}/data/filelists/be/val.txt
+
+batch_size: 16
+num_workers: 4
+pin_memory: false
+
+# Mel front-end. These are the VocBulwark vocoder's own settings and must not be changed
+# (NOTES.md §1: "parameters must match the vocoder exactly"). The vocoder reads a Whisper-style
+# log10 mel: 96 bins spanning 0..sr/2, noise floor clamped to (peak - 8), then (x + 4) / 4.
+mel:
+  _target_: test_tts.audio.mel.WhisperMel
+  sample_rate: 24000
+  n_fft: 1024
+  n_mels: 96
+  hop_length: 256
+
+# Corpus statistics of that mel, computed with:  uv run tts-data-stats data=be_vocbulwark
+# Mels are normalised to zero mean / unit std before entering the VAE; undone before vocoding.
+mel_stats:
+  mean: 0.10719538480043411
+  std: 0.4596509635448456
+
+# Training crops: a random window of this many mel frames per utterance (256 frames = 2.7 s at
+# 93.75 frames/s). Dense batches, and the conv VAE is translation-equivariant anyway.
+# Validation always uses whole utterances, padded and masked. null = whole utterances.
+segment_frames: 256
+
+# Frame counts are padded up to a multiple of this; set from the model's temporal compression.
+multiple_of: ${model.compression}
+
+# Optional on-disk cache of extracted mels (.npy, one per utterance); null = extract on the fly.
+cache_dir: ${paths.root_dir}/data/cache/mels_${data.name}
+
+# Relative paths in the filelists are resolved against the project root.
+root: ${paths.root_dir}
+seed: ${seed}

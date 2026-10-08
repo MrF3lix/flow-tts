@@ -1,0 +1,27 @@
+# @package _global_
+
+# Tiny end-to-end run of any stage:
+#   uv run tts-train-vae experiment=be_vae debug=smoke
+#   uv run tts-train-fm experiment=be_fm debug=smoke
+defaults:
+  - override /logger: tensorboard   # keep debug runs out of wandb
+
+run_name: smoke
+tags: ["debug"]
+
+data:
+  batch_size: 4
+  num_workers: 0
+
+trainer:
+  max_steps: 20
+  warmup_steps: 2
+  log_every_n_steps: 1
+  val_every_n_steps: 10
+  ckpt_every_n_steps: 10
+  n_audio_samples: 1
+  audio_every_n_vals: 1
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/debug/${run_name}/${now:%Y-%m-%d}_${now:%H-%M-%S}

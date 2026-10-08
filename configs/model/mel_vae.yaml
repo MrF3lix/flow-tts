@@ -1,0 +1,15 @@
+_target_: test_tts.models.mel_vae.MelVAE
+
+n_mels: ${data.mel.n_mels}
+
+# Latent z: (T / compression, latent_dim). NOTES.md §2 suggests r = 4..8, C = 32..64.
+latent_dim: 32
+compression: 4            # must be 2 ** (len(channels) - 1)
+
+# Channel width per resolution level (level 0 = mel frame rate, last = latent frame rate).
+channels: [192, 256, 384]
+blocks_per_level: 2       # ConvNeXt-style 1-D residual blocks per level
+kernel_size: 7
+
+# Loss: L1 mel reconstruction + beta * KL (NOTES.md §3: beta ≈ 1e-3 .. 1e-2).
+beta: 0.005

@@ -1,0 +1,34 @@
+_target_: test_tts.models.latent_fm.LatentFlowTTS
+
+# Set at runtime: vocabulary size from the training texts, the rest from the VAE checkpoint.
+n_vocab: null
+n_mels: null
+latent_dim: null
+compression: null
+
+# Character encoder with a mel prior for alignment (Matcha-sized).
+encoder:
+  hidden: 192
+  n_layers: 6
+  n_heads: 2
+  ff_mult: 4
+  kernel_size: 3          # conv feed-forward, as in Matcha
+  prenet_layers: 3
+  dropout: 0.1
+
+duration_predictor:
+  filter_channels: 256
+  kernel_size: 3
+  dropout: 0.1
+
+# Velocity network over latent frames (DiT with adaLN-zero time conditioning).
+decoder:
+  d_model: 256
+  depth: 8
+  n_heads: 4
+  ff_mult: 4
+  dropout: 0.1
+  conv_pos_kernel: 31
+
+sigma_min: 1e-4           # OT path minimum noise (Matcha)
+p_uncond: 0.1             # drop the text condition this often, enables classifier-free guidance

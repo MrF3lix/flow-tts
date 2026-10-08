@@ -1,0 +1,8 @@
+wandb:
+  _target_: test_tts.training.loggers.WandbLogger
+  save_dir: ${paths.output_dir}
+  project: test-tts
+  name: ${run_name}
+  id: null                # set to resume a run
+  offline: false
+  tags: ${tags}
