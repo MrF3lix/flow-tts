@@ -87,6 +87,29 @@ How it works (`src/test_tts/models/latent_fm.py`):
 
 The latents of the frozen VAE are cached once per VAE run and step under `data/cache/latents/`.
 
+## Training on the cluster (SLURM)
+
+One GPU per stage, logged to the wandb project `test-tts`. The wandb key is read from
+`WANDB_API_KEY` in the git-ignored `.env`, so copy `.env` to the cluster checkout. Submit from
+the repo root; extra arguments are hydra overrides, `RUN_DIR=<dir>` continues a run from its
+`last.pt`, and `DRY_RUN=1 bash <script>` prints the commands without running anything.
+
+```bash
+mkdir -p logs/slurm                                   # SLURM does not create it
+ln -s <corpus-path>/be data/be                        # the filelists point into data/be
+
+sbatch train_vae.submit                               # VAE, then its latent statistics
+VAE_CKPT=logs/train_vae/be_vae/runs/<dir>/checkpoints/best.pt sbatch train_fm.submit
+
+# or both chained: the flow job waits for the VAE job to succeed
+RUN_DIR=logs/train_vae/be_vae/runs/cluster_v1
+job=$(RUN_DIR=$RUN_DIR sbatch --parsable train_vae.submit)
+VAE_CKPT=$RUN_DIR/checkpoints/best.pt sbatch --dependency=afterok:$job train_fm.submit
+```
+
+`scripts/slurm_setup.sh` (sourced by both) picks cu128 or rocm, syncs a per-flavour venv under
+`/raid/persistent_scratch/saaf/venvs/` and warns when `.env` is missing.
+
 ## Notebook
 
 `notebooks/vae_inference.ipynb` walks through inference on one validation utterance: original

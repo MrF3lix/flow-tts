@@ -3,16 +3,14 @@ name = "test-tts"
 version = "0.1.0"
 description = "Latent Energy Matching for mel-spectrogram TTS on a dialect continuum (test implementation)"
 readme = "README.md"
-authors = [
-    { name = "Felix Saaro", email = "saaf@zhaw.ch" }
-]
-requires-python = ">=3.13"
+authors = [{ name = "Felix Saaro", email = "saaf@zhaw.ch" }]
+requires-python = ">=3.12"
 dependencies = [
     "torch>=2.8.0,<2.12",
     "torchaudio>=2.8.0,<2.12",
     "numpy>=2.0",
-    "soundfile",             # audio I/O without an FFmpeg dependency
-    "transformers>=4.57,<5", # Whisper mel filterbank + the VocBulwark vocoder / speaker encoder (remote code)
+    "soundfile",               # audio I/O without an FFmpeg dependency
+    "transformers>=4.57,<5",   # Whisper mel filterbank + the VocBulwark vocoder / speaker encoder (remote code)
     # --------- hydra --------- #
     "hydra-core>=1.3.2",
     "hydra-colorlog>=1.2.0",
@@ -57,12 +55,12 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu128", extra = "cu128" },
-  { index = "pytorch-rocm", extra = "rocm" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-rocm", extra = "rocm" },
 ]
 torchaudio = [
-  { index = "pytorch-cu128", extra = "cu128" },
-  { index = "pytorch-rocm", extra = "rocm" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-rocm", extra = "rocm" },
 ]
 
 triton-rocm = [{ index = "pytorch-rocm", extra = "rocm" }]
