@@ -26,19 +26,30 @@
 # built on the node on first use. Check the commands without SLURM:  DRY_RUN=1 bash train_fm.submit
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
-source scripts/slurm_setup.sh
-
 EXP_NAME="${EXP_NAME:-be_fm}"
+
+# Fail before the setup if the VAE checkpoint is missing: VAE_CKPT, else a vae_ckpt=... argument,
+# else the default in configs/experiment/${EXP_NAME}.yaml (a path from the machine it was written on).
+VAE_PATH="${VAE_CKPT:-}"
+for arg in "$@"; do [[ "${arg}" == vae_ckpt=* ]] && VAE_PATH="${arg#vae_ckpt=}"; done
+if [ -z "${VAE_PATH}" ]; then
+    VAE_PATH="$(sed -n 's/^vae_ckpt:[[:space:]]*//p' "configs/experiment/${EXP_NAME}.yaml" | sed "s|\${paths.root_dir}|$(pwd)|")"
+fi
+if [ "${DRY_RUN:-0}" != "1" ] && [ ! -f "${VAE_PATH}" ]; then
+    echo "ERROR: VAE checkpoint not found: ${VAE_PATH}" >&2
+    echo "VAE checkpoints here:" >&2
+    ls -1 logs/train_vae/*/runs/*/checkpoints/best.pt 2>/dev/null | sed 's/^/  /' >&2 || echo "  (none)" >&2
+    echo "Run with: VAE_CKPT=<one of them> sbatch train_fm.submit" >&2
+    exit 1
+fi
+
+source scripts/slurm_setup.sh
 RUN_DIR="${RUN_DIR:-logs/train_fm/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
 run mkdir -p "${RUN_DIR}"
 echo "[$(date +%T)] tts-train-fm experiment=${EXP_NAME} -> ${RUN_DIR}"
 
 EXTRA=()
 if [ -n "${VAE_CKPT:-}" ]; then
-    if [ "${DRY_RUN:-0}" != "1" ] && [ ! -f "${VAE_CKPT}" ]; then
-        echo "ERROR: VAE_CKPT=${VAE_CKPT} does not exist" >&2
-        exit 1
-    fi
     EXTRA+=(vae_ckpt="$(cd "$(dirname "${VAE_CKPT}")" 2>/dev/null && pwd || dirname "${VAE_CKPT}")/$(basename "${VAE_CKPT}")")
 fi
 if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then

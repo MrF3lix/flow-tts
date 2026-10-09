@@ -34,6 +34,15 @@ def vae_cache_key(vae_ckpt: str | Path, step: int) -> str:
 
 def load_vae(vae_ckpt: str | Path, device="cpu"):
     """`(vae, ckpt)` with EMA weights; refuses a VAE whose latent statistics are not fitted."""
+    if not Path(vae_ckpt).is_file():
+        found = sorted(Path.cwd().glob("logs/train_vae/*/runs/*/checkpoints/best.pt"))
+        listing = "\n".join(f"  {p.relative_to(Path.cwd())}" for p in found) or "  (none under logs/train_vae/)"
+        raise FileNotFoundError(
+            f"VAE checkpoint not found: {vae_ckpt}\n"
+            f"VAE checkpoints in {Path.cwd()}:\n{listing}\n"
+            "Pass one with vae_ckpt=<path> (cluster: VAE_CKPT=<path> sbatch train_fm.submit), "
+            "or copy the checkpoint to the path above."
+        )
     ckpt = load_checkpoint(vae_ckpt)
     vae = model_from_checkpoint(ckpt, device, use_ema=True)
     if not bool(vae.latent_stats_fitted):

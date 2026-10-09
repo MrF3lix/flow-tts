@@ -10,6 +10,9 @@ run() {
     fi
 }
 
+# Hydra otherwise hides the stack trace (and e.g. the name of a missing file) in the job log.
+export HYDRA_FULL_ERROR=1
+
 if [ ! -f .env ] && [ -z "${WANDB_API_KEY:-}" ]; then
     echo "WARNING: no .env with WANDB_API_KEY in $(pwd); wandb logging will fail (copy .env from your Mac)" >&2
 fi
